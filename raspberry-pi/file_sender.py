@@ -1,3 +1,4 @@
+# путь: raspberry-pi/file_sender.py
 #!/usr/bin/env python3
 """
 File Sender для передачи аудиофайлов с Raspberry Pi на ПК.

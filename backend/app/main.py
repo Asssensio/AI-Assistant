@@ -1,3 +1,4 @@
+# путь: backend/app/main.py
 """
 FastAPI Backend для AI Assistant.
 

@@ -1,3 +1,4 @@
+# путь: backend/app/core/file_watcher.py
 """
 File Watcher для мониторинга новых аудиофайлов.
 """

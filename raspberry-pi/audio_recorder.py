@@ -1,3 +1,4 @@
+# путь: raspberry-pi/audio_recorder.py
 #!/usr/bin/env python3
 """
 Audio Recorder for Raspberry Pi Zero 2W with ReSpeaker 2-Mic HAT.

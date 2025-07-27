@@ -1,3 +1,4 @@
+# путь: libs/exceptions.py
 """
 Кастомные исключения для AI Assistant.
 

@@ -1,3 +1,4 @@
+# путь: scripts/setup_pi.sh
 #!/bin/bash
 
 # AI Assistant - Скрипт настройки Raspberry Pi Zero 2W
