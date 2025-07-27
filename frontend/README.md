@@ -1,36 +1,170 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# путь: frontend/README.md
+# AI Assistant Frontend
 
-## Getting Started
+Веб-интерфейс для системы речевой записи и анализа AI Assistant.
 
-First, run the development server:
+## 🚀 Быстрый старт
 
+### Предварительные требования
+
+- Node.js 18+ 
+- npm или yarn
+- Запущенный backend сервер (порт 8000)
+
+### Установка и запуск
+
+1. **Установите зависимости:**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Создайте файл .env.local:**
+```bash
+cp .env.example .env.local
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Настройте переменные окружения:**
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. **Запустите в режиме разработки:**
+```bash
+npm run dev
+```
 
-## Learn More
+5. **Откройте браузер:**
+```
+http://localhost:3000
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 🔐 Аутентификация
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Для входа используйте:
+- **Логин:** `admin`
+- **Пароль:** `admin123`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🎵 Основные функции
 
-## Deploy on Vercel
+### Аудиоплеер
+- Визуализация waveform с помощью WaveSurfer.js
+- Объединение аудиофрагментов в единый трек
+- Синхронизация с текстом транскрипции
+- Управление воспроизведением (play/pause, громкость, seek)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Синхронизированный текст
+- Подсветка текущего сегмента во время воспроизведения
+- Клик по тексту для перехода к моменту в аудио
+- Автопрокрутка к активному сегменту
+- Парсинг timestamps из Whisper
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Редактор ретроспективы
+- Блочное редактирование текста
+- Объединение и удаление блоков
+- Сохранение изменений в базу данных
+- Предварительный просмотр
+
+### Генерация summary
+- Создание краткого summary через OpenAI
+- Интеграция с ChatGPT API
+- Автоматическое обновление интерфейса
+
+## 🛠 Технологии
+
+- **Next.js 15** - React фреймворк
+- **TypeScript** - Типизация
+- **Tailwind CSS** - Стилизация
+- **WaveSurfer.js** - Аудио визуализация
+- **Axios** - HTTP клиент
+- **Lucide React** - Иконки
+
+## 📁 Структура проекта
+
+```
+src/
+├── app/                    # App Router (Next.js 13+)
+│   ├── day/[date]/        # Страница дня
+│   ├── days/              # Список дней
+│   ├── login/             # Страница входа
+│   └── layout.tsx         # Корневой layout
+├── components/            # React компоненты
+│   ├── AudioPlayer.tsx    # Аудиоплеер
+│   ├── SynchronizedText.tsx # Синхронизированный текст
+│   └── RetrospectiveEditor.tsx # Редактор
+├── contexts/              # React контексты
+│   └── AuthContext.tsx    # Аутентификация
+├── lib/                   # Утилиты
+│   └── api.ts            # API клиент
+└── middleware.ts          # Next.js middleware
+```
+
+## 🔧 Разработка
+
+### Команды
+
+```bash
+# Запуск в режиме разработки
+npm run dev
+
+# Сборка для продакшена
+npm run build
+
+# Запуск продакшен сборки
+npm start
+
+# Линтинг
+npm run lint
+
+# Типизация
+npm run type-check
+```
+
+### Переменные окружения
+
+| Переменная | Описание | По умолчанию |
+|------------|----------|--------------|
+| `NEXT_PUBLIC_API_URL` | URL backend API | `http://localhost:8000` |
+
+## 🎨 UI/UX
+
+### Дизайн система
+- **Цвета:** Синяя палитра (#4F46E5, #7C3AED)
+- **Типографика:** Geist Sans (системный шрифт)
+- **Компоненты:** Tailwind CSS + кастомные стили
+- **Анимации:** CSS transitions + Framer Motion
+
+### Адаптивность
+- Mobile-first подход
+- Responsive breakpoints
+- Touch-friendly интерфейс
+
+## 🔒 Безопасность
+
+- JWT токены в localStorage
+- Защищенные роуты через middleware
+- Автоматический редирект на логин
+- Валидация форм
+
+## 🚀 Деплой
+
+### Vercel (рекомендуется)
+```bash
+npm run build
+vercel --prod
+```
+
+### Docker
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+## 📝 Лицензия
+
+MIT License
