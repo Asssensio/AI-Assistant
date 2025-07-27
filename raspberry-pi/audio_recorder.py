@@ -23,7 +23,14 @@ except ImportError:
     pyaudio = None
     wave = None
 
-from libs.config import get_audio_config
+# Исправленный импорт конфигурации
+try:
+    from raspberry_pi.config import get_pi_audio_config, get_pi_system_config
+except ImportError:
+    # Fallback к общей конфигурации
+    from libs.config import get_audio_config as get_pi_audio_config
+    from libs.config import get_general_config as get_pi_system_config
+
 from libs.exceptions import AudioRecordingError
 
 
@@ -32,7 +39,8 @@ class AudioRecorder:
     
     def __init__(self) -> None:
         """Инициализация рекордера."""
-        self.config = get_audio_config()
+        self.config = get_pi_audio_config()
+        self.system_config = get_pi_system_config()
         self.is_recording = False
         self.stream: Optional[object] = None
         self.audio: Optional[object] = None
@@ -75,11 +83,14 @@ class AudioRecorder:
             return None
             
         device_count = self.audio.get_device_count()
+        patterns = self.config.get("device_name_patterns", ["respeaker", "seeed"])
+        
         for i in range(device_count):
             info = self.audio.get_device_info_by_index(i)
-            if "respeaker" in info["name"].lower() or "seeed" in info["name"].lower():
-                print(f"Найдено ReSpeaker устройство: {info['name']}")
-                return i
+            for pattern in patterns:
+                if pattern in info["name"].lower():
+                    print(f"Найдено аудио устройство: {info['name']}")
+                    return i
         return None
         
     def _get_output_path(self, timestamp: datetime) -> Path:
@@ -87,7 +98,7 @@ class AudioRecorder:
         date_str = timestamp.strftime("%Y-%m-%d")
         filename = timestamp.strftime("%Y-%m-%d_%H-%M-%S.wav")
         
-        output_dir = Path(self.config["base_path"]) / date_str
+        output_dir = self.config["base_path"] / date_str
         output_dir.mkdir(parents=True, exist_ok=True)
         
         return output_dir / filename
@@ -107,7 +118,7 @@ class AudioRecorder:
             
         try:
             # Настройка параметров записи
-            chunk = 1024
+            chunk = self.config.get("chunk_size", 1024)
             sample_format = pyaudio.paInt16
             channels = self.config["channels"]
             sample_rate = self.config["sample_rate"]
@@ -166,7 +177,8 @@ class AudioRecorder:
         try:
             while self.is_recording:
                 # Записываем фрагмент
-                output_path = self.record_chunk(10)
+                chunk_duration = self.config.get("chunk_minutes", 10)
+                output_path = self.record_chunk(chunk_duration)
                 
                 # Небольшая пауза между фрагментами
                 if self.is_recording:
