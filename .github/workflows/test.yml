@@ -1,0 +1,161 @@
+# путь: .github/workflows/test.yml
+name: 🧪 AI Assistant Tests
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: 🐍 Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.12]
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: 📦 Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+
+    - name: 🔄 Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+    - name: 📦 Install dependencies
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: |
+        poetry install --no-interaction --no-root
+
+    - name: 🔍 Install project
+      run: poetry install --no-interaction
+
+    - name: 🧹 Lint with black
+      run: |
+        poetry run black --check --diff .
+
+    - name: 📋 Lint with isort
+      run: |
+        poetry run isort --check-only --diff .
+
+    - name: 🔧 Lint with flake8
+      run: |
+        poetry run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        poetry run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+
+    - name: 🔍 Type check with mypy
+      run: |
+        poetry run mypy backend/ libs/ --ignore-missing-imports
+
+    - name: 🧪 Test with pytest
+      env:
+        DEBUG: true
+        DATABASE_URL: sqlite:///test.db
+        MOCK_WHISPER: true
+        MOCK_TELEGRAM: true
+      run: |
+        poetry run pytest tests/ -v --cov=backend --cov=libs --cov-report=xml
+
+    - name: 📊 Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: true
+
+  test-raspberry-pi:
+    name: 🍓 Test Raspberry Pi Components
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.12
+
+    - name: 📦 Install Pi dependencies
+      run: |
+        pip install -r requirements-pi.txt
+
+    - name: 🧪 Test Pi components
+      env:
+        DEV_MODE: true
+        MOCK_WHISPER: true
+      run: |
+        python -m pytest tests/ -k "test_audio_recorder_import or test_file_sender_import" -v
+
+  security:
+    name: 🔒 Security checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.12
+
+    - name: 📦 Install Poetry
+      uses: snok/install-poetry@v1
+
+    - name: 🔒 Run safety check
+      run: |
+        poetry run pip install safety
+        poetry run safety check
+
+    - name: 🕵️ Run bandit security linter
+      run: |
+        poetry run pip install bandit
+        poetry run bandit -r backend/ libs/ -f json -o bandit-report.json || true
+
+    - name: 📋 Upload bandit report
+      uses: actions/upload-artifact@v3
+      with:
+        name: bandit-report
+        path: bandit-report.json
+
+  build-check:
+    name: 🏗️ Build verification
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.12
+
+    - name: 📦 Install Poetry
+      uses: snok/install-poetry@v1
+
+    - name: 🏗️ Build package
+      run: |
+        poetry build
+
+    - name: 📋 Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist
+        path: dist/ 
