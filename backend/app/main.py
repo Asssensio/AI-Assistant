@@ -15,7 +15,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
 from libs.config import get_app_config, get_cors_config
-from backend.app.api import auth, days, fragments
+from backend.app.api import auth, days, fragments, audio
 from backend.app.models.database import create_tables
 from backend.app.core.file_watcher import FileWatcher
 
@@ -146,6 +146,7 @@ async def get_stats():
 app.include_router(auth.router, prefix="/auth", tags=["authentication"])
 app.include_router(days.router, prefix="/days", tags=["days"])
 app.include_router(fragments.router, prefix="/fragments", tags=["fragments"])
+app.include_router(audio.router, prefix="/audio", tags=["audio"])
 
 
 if __name__ == "__main__":

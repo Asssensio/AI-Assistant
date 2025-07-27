@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from backend.app.models.database import get_db
 from backend.app.models.day import Day
 from backend.app.models.fragment import Fragment
+from backend.app.core.openai_client import OpenAIClient
 
 router = APIRouter()
 
@@ -141,9 +142,9 @@ async def update_day_summary(
     return day
 
 
-@router.get("/{day_date}/audio-player")
-async def get_audio_player_data(day_date: str, db: Session = Depends(get_db)):
-    """Получение данных для аудио плеера."""
+@router.get("/{day_date}/playlist")
+async def get_audio_playlist(day_date: str, db: Session = Depends(get_db)):
+    """Получение плейлиста аудиофрагментов для дня."""
     try:
         parsed_date = datetime.strptime(day_date, "%Y-%m-%d").date()
     except ValueError:
@@ -153,24 +154,86 @@ async def get_audio_player_data(day_date: str, db: Session = Depends(get_db)):
     if not day:
         raise HTTPException(status_code=404, detail="Day not found")
     
-    fragments = db.query(Fragment).filter(Fragment.day_id == day.id).order_by(Fragment.start_time).all()
+    # Получаем все фрагменты дня
+    fragments = db.query(Fragment).filter(
+        Fragment.day_id == day.id,
+        Fragment.transcribed == True
+    ).order_by(Fragment.start_time).all()
     
+    # Формируем плейлист для плеера
     playlist = []
+    total_duration = 0
+    
     for fragment in fragments:
-        playlist.append({
-            "id": fragment.id,
-            "file_path": fragment.file_path,
-            "start_time": fragment.start_time.isoformat(),
-            "duration": fragment.duration_seconds,
-            "transcript": fragment.transcript_text,
-            "timestamps": fragment.get_whisper_timestamps()
-        })
+        if fragment.duration_seconds:
+            playlist.append({
+                "id": fragment.id,
+                "filename": fragment.original_filename,
+                "file_path": fragment.file_path,
+                "url": f"/audio/{fragment.id}",  # URL для проигрывания
+                "start_time": fragment.start_time.isoformat(),
+                "duration": fragment.duration_seconds,
+                "offset": total_duration,  # Смещение в общем треке
+                "transcript": fragment.transcript_text,
+                "timestamps": fragment.get_whisper_timestamps()
+            })
+            total_duration += fragment.duration_seconds
     
     return {
-        "date": day_date,
-        "total_duration": day.total_duration_seconds,
+        "day_date": day_date,
+        "total_duration": total_duration,
+        "fragments_count": len(playlist),
         "playlist": playlist
     }
+
+
+@router.get("/{day_date}/audio-player")
+async def get_audio_player_data(day_date: str, db: Session = Depends(get_db)):
+    """Получение данных для аудио плеера (legacy endpoint)."""
+    return await get_audio_playlist(day_date, db)
+
+
+@router.post("/{day_date}/generate_short_summary", response_model=DayDetails)
+async def generate_short_summary(day_date: str, db: Session = Depends(get_db)):
+    """Генерация краткого summary дня через OpenAI."""
+    try:
+        parsed_date = datetime.strptime(day_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    day = db.query(Day).filter(Day.date == parsed_date).first()
+    if not day:
+        raise HTTPException(status_code=404, detail="Day not found")
+    
+    # Проверяем наличие medium_summary
+    if not day.medium_summary:
+        raise HTTPException(
+            status_code=400, 
+            detail="Medium summary не найден. Сначала создайте ретроспективу дня."
+        )
+    
+    # Генерируем short summary
+    openai_client = OpenAIClient()
+    if not openai_client.is_available():
+        raise HTTPException(
+            status_code=503, 
+            detail="OpenAI API недоступен. Проверьте настройки."
+        )
+    
+    short_summary = await openai_client.generate_short_summary(day.medium_summary)
+    if not short_summary:
+        raise HTTPException(
+            status_code=500, 
+            detail="Ошибка генерации short summary. Попробуйте позже."
+        )
+    
+    # Сохраняем результат
+    day.short_summary = short_summary
+    day.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(day)
+    
+    return day
 
 
 @router.post("/", response_model=DayDetails)
