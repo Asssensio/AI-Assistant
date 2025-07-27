@@ -167,7 +167,9 @@ class FileWatcher:
                 for path in completed_tasks:
                     del self.processing_tasks[path]
                 
-                await asyncio.sleep(5)  # Проверяем каждые 5 секунд
+                # Динамический интервал в зависимости от нагрузки
+                sleep_time = 5 if len(self.processing_tasks) < 3 else 10
+                await asyncio.sleep(sleep_time)  # Адаптивная проверка
                 
             except Exception as e:
                 logger.error(f"❌ Ошибка в цикле обработки: {e}")
@@ -262,8 +264,13 @@ class FileWatcher:
     
     async def transcribe_fragment(self, fragment: Fragment):
         """Транскрипция фрагмента через Whisper."""
-        try:
-            result = await self.whisper_processor.transcribe_file(fragment.file_path)
+        max_retries = self.general_config.get("max_retries", 3)
+        retry_delay = self.general_config.get("retry_delay", 30)
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"🎯 Попытка транскрипции {attempt + 1}/{max_retries}: {fragment.original_filename}")
+                result = await self.whisper_processor.transcribe_file(fragment.file_path)
             
             if result:
                 db = get_db_sync()
@@ -285,24 +292,31 @@ class FileWatcher:
                                 day.total_duration_seconds += db_fragment.duration_seconds
                         
                         db.commit()
-                        logger.info(f"🎯 Транскрипция завершена: {fragment.original_filename}")
+                        logger.info(f"✅ Транскрипция завершена: {fragment.original_filename}")
+                        return  # Успешно завершили
                         
                 finally:
                     db.close()
                     
-        except Exception as e:
-            logger.error(f"❌ Ошибка транскрипции {fragment.original_filename}: {e}")
-            
-            # Записываем ошибку в базу
-            db = get_db_sync()
-            try:
-                db_fragment = db.query(Fragment).filter(Fragment.id == fragment.id).first()
-                if db_fragment:
-                    db_fragment.processing_error = str(e)
-                    db_fragment.retry_count += 1
-                    db.commit()
-            finally:
-                db.close()
+            except Exception as e:
+                logger.error(f"❌ Попытка {attempt + 1} неудачна для {fragment.original_filename}: {e}")
+                
+                if attempt < max_retries - 1:
+                    logger.info(f"⏳ Повтор через {retry_delay} секунд...")
+                    await asyncio.sleep(retry_delay)
+                    continue
+                else:
+                    # Записываем финальную ошибку в базу
+                    db = get_db_sync()
+                    try:
+                        db_fragment = db.query(Fragment).filter(Fragment.id == fragment.id).first()
+                        if db_fragment:
+                            db_fragment.processing_error = f"Все {max_retries} попыток неудачны. Последняя ошибка: {str(e)}"
+                            db_fragment.retry_count = max_retries
+                            db.commit()
+                    finally:
+                        db.close()
+                    break
     
     def extract_date_from_path(self, file_path: Path) -> str:
         """Извлечение даты из пути файла."""

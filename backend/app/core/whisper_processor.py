@@ -99,11 +99,33 @@ class WhisperProcessor:
                 "language": self.config.get("language", "ru"),
                 "task": self.config.get("task", "transcribe"),
                 "fp16": self.config.get("compute_type") == "float16",
-                "verbose": False
+                "verbose": False,
+                "temperature": 0.0,  # Более детерминированный результат
+                "compression_ratio_threshold": 2.4,  # Фильтр повторений
+                "logprob_threshold": -1.0,  # Фильтр низкоуверенных сегментов
+                "no_speech_threshold": 0.6,  # Порог тишины
             }
             
-            # Выполняем транскрипцию
-            result = self.model.transcribe(file_path, **options)
+            # Добавляем timeout через signal (только для Unix)
+            import signal
+            import platform
+            
+            timeout_seconds = self.config.get("timeout", 300)  # 5 минут по умолчанию
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError(f"Транскрипция превысила {timeout_seconds} секунд")
+            
+            # Устанавливаем timeout только на Unix системах
+            if platform.system() != "Windows" and timeout_seconds > 0:
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(timeout_seconds)
+            
+            try:
+                # Выполняем транскрипцию
+                result = self.model.transcribe(file_path, **options)
+            finally:
+                if platform.system() != "Windows" and timeout_seconds > 0:
+                    signal.alarm(0)  # Отключаем timeout
             
             # Форматируем результат
             return {

@@ -47,6 +47,9 @@ def get_general_config() -> Dict[str, Any]:
         "debug": get_bool_env("DEBUG", True),
         "log_level": os.getenv("LOG_LEVEL", "INFO"),
         "timezone": os.getenv("TIMEZONE", "Europe/Moscow"),
+        "max_retries": get_int_env("MAX_RETRIES", 3),
+        "retry_delay": get_int_env("RETRY_DELAY", 30),
+        "file_check_interval": get_int_env("FILE_CHECK_INTERVAL", 5),
     }
 
 
@@ -94,6 +97,9 @@ def get_whisper_config() -> Dict[str, Any]:
         "compute_type": os.getenv("WHISPER_COMPUTE_TYPE", "float16"),
         "language": os.getenv("WHISPER_LANGUAGE", "ru"),
         "task": os.getenv("WHISPER_TASK", "transcribe"),
+        "timeout": get_int_env("WHISPER_TIMEOUT", 300),  # 5 минут timeout
+        "max_retries": get_int_env("WHISPER_MAX_RETRIES", 3),
+        "retry_delay": get_int_env("WHISPER_RETRY_DELAY", 30),
     }
 
 
